@@ -1,3 +1,13 @@
+// include the SD library:
+#include <SD.h>
+#include <SPI.h>
+
+// change this to match your SD shield or module;
+// Teensy 3.5 & 3.6 on-board: BUILTIN_SDCARD
+const int chipSelect = BUILTIN_SDCARD;
+
+bool SdCardAvailable = true;
+
 
 #include <EEPROM.h>
 uint8_t lastScoreRedPlayer = 12;
@@ -104,6 +114,8 @@ String message = "";
 #define MINUTE       18
 #define DISPLAY_DATE 19
 #define STOP_DRAW    20
+#define SAVE         21
+#define BOOT         22
 bool command_flag = false;
 int command = 0;
 bool value_flag = false;
@@ -119,29 +131,17 @@ void setup() {
 #endif
   delay(200);
 
+  if (!SD.begin(chipSelect)) {
+    SdCardAvailable = false;
+  }
+
   matrix.addLayer(&backgroundLayer);
   matrix.begin();
   matrix.setBrightness(FULL_BRIGHTNESS);
   backgroundLayer.enableColorCorrection(true);
 
   // reads values from EEPROM
-  /*
-    lastScoreRedPlayer   = EEPROM.read(0);
-    lastScoreGreenPlayer = EEPROM.read(1);
-    lastScoreYear        = EEPROM.read(2);
-    lastScoreMonth       = EEPROM.read(3);
-    lastScoreDay         = EEPROM.read(4);
-    lastScoreHour        = EEPROM.read(5);
-    lastScoreMinute      = EEPROM.read(6);
-
-    bestScoreRedPlayer   = EEPROM.read(7);
-    bestScoreGreenPlayer = EEPROM.read(8);
-    bestScoreYear        = EEPROM.read(9);
-    bestScoreMonth       = EEPROM.read(10);
-    bestScoreDay         = EEPROM.read(11);
-    bestScoreHour        = EEPROM.read(12);
-    bestScoreMinute      = EEPROM.read(13);
-  */
+  loadScores();
 
   // wait for Arduino Mega to start ...
   mode = BOOTING;
@@ -201,6 +201,10 @@ void loop() {
         if (receivedString == "MINUTE") {
           command = MINUTE;
           value_flag = true; // Waiting for a following argument
+        }
+
+        if (receivedString == "BOOT") {
+          logBoot();
         }
 
         if (receivedString == "DISPLAY_DATE") {
@@ -290,6 +294,11 @@ void loop() {
           mode = STOP_DRAW;
           top = 0; // refresh screen !
           progressBar = 0; // hide progress bar
+        }
+
+        if (receivedString == "SAVE") {
+          // save scores
+          saveScores();
         }
 
         command_flag = false; // Command processed!
@@ -554,6 +563,109 @@ void loop() {
   }
 
   delay(1); // A little delay for the microcontroler stability
+}
+
+void loadScores() {
+  lastScoreRedPlayer   = EEPROM.read(0);
+  lastScoreGreenPlayer = EEPROM.read(1);
+  lastScoreYear        = EEPROM.read(2);
+  lastScoreMonth       = EEPROM.read(3);
+  lastScoreDay         = EEPROM.read(4);
+  lastScoreHour        = EEPROM.read(5);
+  lastScoreMinute      = EEPROM.read(6);
+
+  bestScoreRedPlayer   = EEPROM.read(7);
+  bestScoreGreenPlayer = EEPROM.read(8);
+  bestScoreYear        = EEPROM.read(9);
+  bestScoreMonth       = EEPROM.read(10);
+  bestScoreDay         = EEPROM.read(11);
+  bestScoreHour        = EEPROM.read(12);
+  bestScoreMinute      = EEPROM.read(13);
+}
+
+void saveScores() {
+  lastScoreRedPlayer = currentScoreRedPlayer;
+  lastScoreGreenPlayer = currentScoreGreenPlayer;
+  lastScoreYear = currentYear;
+  lastScoreMonth = currentMonth;
+  lastScoreDay = currentDay;
+  lastScoreHour = currentHour;
+  lastScoreMinute = currentMinute;
+
+  EEPROM.write(0, lastScoreRedPlayer);
+  EEPROM.write(1, lastScoreGreenPlayer);
+  EEPROM.write(2, lastScoreYear);
+  EEPROM.write(3, lastScoreMonth);
+  EEPROM.write(4, lastScoreDay);
+  EEPROM.write(5, lastScoreHour);
+  EEPROM.write(6, lastScoreMinute);
+
+  bool currentScoreIsHigher = max(currentScoreRedPlayer, currentScoreGreenPlayer) > max(bestScoreRedPlayer, bestScoreGreenPlayer);
+  bool currentScoreIsEqual = max(currentScoreRedPlayer, currentScoreGreenPlayer) == max(bestScoreRedPlayer, bestScoreGreenPlayer);
+  bool secondScoreIsHigher = min(currentScoreRedPlayer, currentScoreGreenPlayer) > min(bestScoreRedPlayer, bestScoreGreenPlayer);
+  if ( currentScoreIsHigher || (currentScoreIsEqual && secondScoreIsHigher)) {
+    bestScoreRedPlayer = currentScoreRedPlayer;
+    bestScoreGreenPlayer = currentScoreGreenPlayer;
+    bestScoreYear = currentYear;
+    bestScoreMonth = currentMonth;
+    bestScoreDay = currentDay;
+    bestScoreHour = currentHour;
+    bestScoreMinute = currentMinute;
+
+    EEPROM.write(7, bestScoreRedPlayer);
+    EEPROM.write(8, bestScoreGreenPlayer);
+    EEPROM.write(9, bestScoreYear);
+    EEPROM.write(10, bestScoreMonth);
+    EEPROM.write(11, bestScoreDay);
+    EEPROM.write(12, bestScoreHour);
+    EEPROM.write(13, bestScoreMinute);
+  }
+
+  if (SdCardAvailable) {
+    File dataFile = SD.open("datalog.txt", FILE_WRITE);
+    // if the file is available, write to it:
+    if (dataFile) {
+      dataFile.print(currentYear);
+      dataFile.print('-');
+      dataFile.print(currentMonth);
+      dataFile.print('-');
+      dataFile.print(currentDay);
+      dataFile.print('T');
+      dataFile.print(currentHour);
+      dataFile.print(':');
+      dataFile.print(currentMinute);
+      dataFile.print(',');
+      dataFile.print(currentScoreRedPlayer);
+      dataFile.print(',');
+      dataFile.println(currentScoreGreenPlayer);
+      dataFile.close();
+      // print to the serial port too:
+    }
+  }
+}
+
+void logBoot() {
+  if (SdCardAvailable) {
+    File dataFile = SD.open("datalog.txt", FILE_WRITE);
+    // if the file is available, write to it:
+    if (dataFile) {
+      dataFile.print(currentYear);
+      dataFile.print('-');
+      dataFile.print(currentMonth);
+      dataFile.print('-');
+      dataFile.print(currentDay);
+      dataFile.print('T');
+      dataFile.print(currentHour);
+      dataFile.print(':');
+      dataFile.print(currentMinute);
+      dataFile.print(',');
+      dataFile.print(0);
+      dataFile.print(',');
+      dataFile.println(0);
+      dataFile.close();
+      // print to the serial port too:
+    }
+  }
 }
 
 void displayDate() {

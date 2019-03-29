@@ -29,8 +29,8 @@ int racketLength = DEFAULT_RACKET_LENGTH;
 
 #define BLINK_DELAY 500
 
-#define DEFAULT_BALL_SPEED 30
-#define MAX_BALL_SPEED 4
+#define DEFAULT_BALL_SPEED 25
+#define MAX_BALL_SPEED 2
 int ballSpeed = DEFAULT_BALL_SPEED;
 
 unsigned long stopTop;
@@ -117,17 +117,9 @@ void setup() {
   }
 
   delay(3000);
-  DateTime now = rtc.now();
-  Serial.print("/YEAR ");
-  Serial.println(now.year() - 2000, DEC);
-  Serial.print("/MONTH ");
-  Serial.println(now.month(), DEC);
-  Serial.print("/DAY ");
-  Serial.println(now.day(), DEC);
-  Serial.print("/HOUR ");
-  Serial.println(now.hour(), DEC);
-  Serial.print("/MINUTE ");
-  Serial.println(now.minute(), DEC);
+  sendDate();
+  Serial.println("/BOOT");
+  delay(500);
   Serial.println("/DISPLAY_DATE");
   delay(2000);
   theaterChaseRainbow(50);
@@ -566,6 +558,9 @@ void loop() {
   } // end PROGRESS_MODE
 
   if (mode == STOP_MODE) {
+    sendDate();
+    Serial.println("/SAVE");
+    delay(500);
     // qui a gagné ?
     if (currentScoreRedPlayer > currentScoreGreenPlayer) {
       Serial.println("/STOP_RED");
@@ -668,6 +663,18 @@ uint32_t Wheel(byte WheelPos) {
   WheelPos -= 170;
   return redStrip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
-//DateTime now = rtc.now();
-//Serial.println(now.unixtime());
-//delay(3000);
+
+void sendDate() {
+  DateTime now = rtc.now();
+  //Serial.println(now.unixtime());
+  Serial.print("/YEAR ");
+  Serial.println(now.year() - 2000, DEC);
+  Serial.print("/MONTH ");
+  Serial.println(now.month(), DEC);
+  Serial.print("/DAY ");
+  Serial.println(now.day(), DEC);
+  Serial.print("/HOUR ");
+  Serial.println(now.hour(), DEC);
+  Serial.print("/MINUTE ");
+  Serial.println(now.minute(), DEC);
+}
