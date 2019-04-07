@@ -23,14 +23,14 @@
 #define RED_STRIP_LENGTH   150
 #define GREEN_STRIP_LENGTH 149
 
-#define DEFAULT_RACKET_LENGTH 20
+#define DEFAULT_RACKET_LENGTH 15
 #define MIN_RACKET_LENGTH      5
 int racketLength = DEFAULT_RACKET_LENGTH;
 
 #define BLINK_DELAY 500
 
-#define DEFAULT_BALL_SPEED 25
-#define MAX_BALL_SPEED 2
+#define DEFAULT_BALL_SPEED 22
+#define MAX_BALL_SPEED 1
 int ballSpeed = DEFAULT_BALL_SPEED;
 
 unsigned long stopTop;
@@ -264,11 +264,24 @@ void loop() {
 
     // every 2 games, racket length decreases
     // update racket length
-    int n = (currentScoreRedPlayer + currentScoreGreenPlayer) / 2;
+    //int n = (currentScoreRedPlayer + currentScoreGreenPlayer) / 2;
+    //racketLength = max(DEFAULT_RACKET_LENGTH - n, MIN_RACKET_LENGTH);
+
+    // every 2 games, racket length decreases
+    // update racket length
+    int n = currentScoreRedPlayer + currentScoreGreenPlayer;
     racketLength = max(DEFAULT_RACKET_LENGTH - n, MIN_RACKET_LENGTH);
+
     // update speed
     //ballSpeed = max(DEFAULT_BALL_SPEED - (2 * n), MAX_BALL_SPEED);
-    ballSpeed = DEFAULT_BALL_SPEED;
+    //ballSpeed = DEFAULT_BALL_SPEED;
+
+    if (n == 0) {
+      ballSpeed = DEFAULT_BALL_SPEED;
+    }
+    else {
+      ballSpeed = DEFAULT_BALL_SPEED - 5;
+    }
 
 
     if (firstPlayer == RED_PLAYER) {
